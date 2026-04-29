@@ -1,0 +1,101 @@
+{
+    "mode": "guided_step_by_step",
+    "project": "ai-retrospective-tool",
+    "workflow": [
+      {
+        "step_id": "S01",
+        "title": "定义数据模型（US-001）",
+        "goal": "确定复盘记录的数据结构与扩展字段",
+  "deliverables": [
+    "TypeScript 类型定义（RetrospectiveEntry）",
+    "字段包含：todayWhatIDid/highlightMoment/Wrong/tomorrowPlan",
+    "预留字段：profileContext/personalityNotes/score/comparisonSummary"
+  ],
+        "commands_or_files": [
+          "src/types/retrospective.ts"
+        ],
+        "done_criteria": [
+          "类型文件可被页面和接口复用",
+          "typecheck 通过"
+        ],
+        "status": "pending"
+      },
+      {
+        "step_id": "S02",
+        "title": "本地持久化层（US-001）",
+        "goal": "实现本地文件存储，支持新增和读取最近一条",
+        "deliverables": [
+          "saveEntry(entry)",
+          "getLatestEntry()",
+          "getAllEntries()"
+        ],
+        "commands_or_files": [
+          "src/lib/retrospective-store.ts",
+          "data/retrospectives.json"
+        ],
+        "done_criteria": [
+          "首次运行可自动创建 data 文件",
+          "新增后可读回",
+          "typecheck 通过"
+        ],
+        "status": "pending"
+      },
+      {
+        "step_id": "S03",
+        "title": "最小 API 路由（US-001）",
+        "goal": "提供创建记录与获取记录接口",
+        "deliverables": [
+          "POST /api/retrospectives",
+          "GET /api/retrospectives/latest"
+        ],
+        "commands_or_files": [
+          "src/app/api/retrospectives/route.ts",
+          "src/app/api/retrospectives/latest/route.ts"
+        ],
+        "done_criteria": [
+          "POST 能保存记录",
+          "GET 能返回最新记录（无数据时返回空态）",
+          "lint/typecheck 通过"
+        ],
+        "status": "pending"
+      },
+      {
+        "step_id": "S04",
+        "title": "表单提交打通（US-002前置）",
+        "goal": "将首页表单连接到 POST API",
+        "deliverables": [
+          "前端表单状态管理",
+          "提交成功/失败提示",
+          "提交后可拉取最新一条进行展示"
+        ],
+        "commands_or_files": [
+          "src/app/page.tsx"
+        ],
+        "done_criteria": [
+          "手动输入可成功保存",
+          "页面可展示最新记录摘要",
+          "lint/typecheck/build 通过"
+        ],
+        "status": "pending"
+      },
+      {
+        "step_id": "S05",
+        "title": "质量与里程碑确认",
+        "goal": "确保这轮可稳定继续迭代",
+        "deliverables": [
+          "通过 lint/typecheck/build",
+          "更新开发说明（可选）"
+        ],
+        "commands_or_files": [
+          "corepack pnpm lint",
+          "corepack pnpm typecheck",
+          "corepack pnpm build"
+        ],
+        "done_criteria": [
+          "三项命令全部通过"
+        ],
+        "status": "pending"
+      }
+    ],
+    "next_action": "请回复要执行的 step_id，例如：S01"
+  }
