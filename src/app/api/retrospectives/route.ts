@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { saveEntry } from "@/lib/retrospective-store";
+import { generateRetrospectiveAnalysis } from "@/lib/retrospective-analysis";
+import { getLatestEntry, saveEntry } from "@/lib/retrospective-store";
 import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
 
 function isNonEmptyString(value: unknown): value is string {
@@ -40,16 +41,41 @@ export async function POST(request: Request) {
     );
   }
 
+  const maybeBody = payload as RetrospectiveInput & {
+    apiKey?: string | null;
+    model?: string | null;
+  };
+  const previous = await getLatestEntry();
+
   const now = new Date().toISOString();
-  const entry: RetrospectiveEntry = {
+  const baseEntry: RetrospectiveEntry = {
     id: crypto.randomUUID(),
     createdAt: now,
     updatedAt: now,
     inputSource: "manual",
-    ...payload,
+    todayWhatIDid: maybeBody.todayWhatIDid,
+    highlightMoment: maybeBody.highlightMoment,
+    whatWentWrong: maybeBody.whatWentWrong,
+    tomorrowPlan: maybeBody.tomorrowPlan,
   };
 
-  const saved = await saveEntry(entry);
+  const analysis = await generateRetrospectiveAnalysis(baseEntry, previous, {
+    apiKey: maybeBody.apiKey,
+    model: maybeBody.model,
+  });
+
+  const saved = await saveEntry({
+    ...baseEntry,
+    todayEvaluation: analysis.todayEvaluation,
+    comparisonSummary: analysis.comparisonSummary,
+    fullReport: analysis.fullReport,
+    nextActions: analysis.nextActions,
+    score: analysis.score,
+    analysisStatus: analysis.analysisStatus,
+    analysisProvider: analysis.analysisProvider,
+    analysisModel: analysis.analysisModel,
+    analysisUpdatedAt: now,
+  });
 
   return NextResponse.json({ ok: true, data: saved }, { status: 201 });
 }

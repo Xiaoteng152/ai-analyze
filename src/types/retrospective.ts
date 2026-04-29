@@ -20,5 +20,12 @@ export type RetrospectiveEntry = RetrospectiveInput & {
   profileContext?: string;
   personalityNotes?: string;
   comparisonSummary?: string;
+  todayEvaluation?: string;
+  fullReport?: string;
+  nextActions?: string[];
   score?: RetrospectiveScore;
+  analysisStatus?: "complete" | "fallback";
+  analysisProvider?: "openai" | "local";
+  analysisModel?: string;
+  analysisUpdatedAt?: string;
 };

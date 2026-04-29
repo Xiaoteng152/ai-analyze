@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
+import { DEFAULT_AI_MODEL } from "@/lib/retrospective-analysis";
 import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
 
 type ApiResponse<T> = {
@@ -27,6 +29,12 @@ const EMPTY_FORM: RetrospectiveInput = {
   tomorrowPlan: "",
 };
 
+const AI_MODEL_OPTIONS = [
+  { label: "gpt-5.4", value: "gpt-5.4" },
+  { label: "gpt-5.5", value: "gpt-5.5" },
+  { label: "gpt-5.4-mini", value: "gpt-5.4-mini" },
+];
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("zh-CN", {
@@ -34,6 +42,13 @@ function formatDate(iso: string): string {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+function truncate(text: string, max = 100): string {
+  if (text.length <= max) {
+    return text;
+  }
+  return `${text.slice(0, max).trimEnd()}…`;
 }
 
 export function RetrospectiveHomeClient({
@@ -46,6 +61,8 @@ export function RetrospectiveHomeClient({
   const [form, setForm] = useState<RetrospectiveInput>(EMPTY_FORM);
   const [latestEntry, setLatestEntry] = useState<RetrospectiveEntry | null>(initialLatestEntry);
   const [previousEntry, setPreviousEntry] = useState<RetrospectiveEntry | null>(initialPreviousEntry);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [model, setModel] = useState<string>(DEFAULT_AI_MODEL);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -77,7 +94,11 @@ export function RetrospectiveHomeClient({
       const res = await fetch("/api/retrospectives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          apiKey: apiKey.trim() || undefined,
+          model,
+        }),
       });
 
       const payload = (await res.json()) as ApiResponse<RetrospectiveEntry>;
@@ -120,7 +141,37 @@ export function RetrospectiveHomeClient({
     ];
   }
 
-  const compareLines = buildCompareLines();
+  function getTodayEvaluation(): string {
+    if (latestEntry?.todayEvaluation) {
+      return truncate(latestEntry.todayEvaluation, 100);
+    }
+
+    return "提交后这里会显示一段控制在 100 字左右的今日评价。";
+  }
+
+  function getComparisonSummary(): string {
+    if (latestEntry?.comparisonSummary) {
+      return truncate(latestEntry.comparisonSummary, 100);
+    }
+
+    return truncate(buildCompareLines().join(" "), 100);
+  }
+
+  function getScoreLabel(): string {
+    if (!latestEntry?.score) {
+      return "临时评分待生成";
+    }
+
+    const suffix =
+      latestEntry.score.scale === "100"
+        ? "/100"
+        : latestEntry.score.scale === "5"
+          ? "/5"
+          : " 评级";
+    return `${latestEntry.score.value}${suffix}`;
+  }
+
+  const hasFullReport = Boolean(latestEntry?.fullReport);
 
   return (
     <main className="grain flex-1">
@@ -223,6 +274,46 @@ export function RetrospectiveHomeClient({
                 </label>
               ))}
 
+              <div className="grid gap-4 rounded-[1.5rem] border border-line bg-white/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">AI 连接设置</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-soft">
+                      API Key 仅在提交分析时随请求发送，后端不会持久化保存。
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#f3e1cf] px-3 py-1 text-xs font-semibold text-accent-deep">
+                    可自定义
+                  </span>
+                </div>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">OpenAI API Key</span>
+                  <input
+                    type="password"
+                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent"
+                    placeholder="sk-..."
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">模型</span>
+                  <select
+                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent"
+                    value={model}
+                    onChange={(event) => setModel(event.target.value)}
+                  >
+                    {AI_MODEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
@@ -245,11 +336,11 @@ export function RetrospectiveHomeClient({
                     AI 输出看板
                   </p>
                   <h2 className="mt-3 text-2xl font-semibold tracking-tight">
-                    下一步接入评分、评价与对比逻辑
+                    今日评价与上次相比
                   </h2>
                 </div>
                 <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
-                  临时评分规则
+                  {latestEntry?.analysisProvider === "openai" ? "OpenAI" : "本地兜底"}
                 </span>
               </div>
 
@@ -257,18 +348,42 @@ export function RetrospectiveHomeClient({
                 <div className="rounded-[1.5rem] bg-white/6 p-4">
                   <p className="text-sm font-semibold">今日评价</p>
                   <p className="mt-3 text-sm leading-7 text-white/74">
-                    当前阶段已完成数据模型、存储与提交链路，后续可以在这个区域接入 AI 总结输出。
+                    {getTodayEvaluation()}
                   </p>
                 </div>
                 <div className="rounded-[1.5rem] bg-white/6 p-4">
                   <p className="text-sm font-semibold">和上次相比</p>
+                  <p className="mt-3 text-sm leading-7 text-white/74">
+                    {getComparisonSummary()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-white/10 bg-white/4 p-4">
+                <div>
+                  <p className="text-sm font-semibold">今日评分</p>
+                  <p className="mt-1 text-2xl font-semibold text-white">{getScoreLabel()}</p>
+                </div>
+                {hasFullReport && latestEntry ? (
+                  <Link
+                    href={`/report/${latestEntry.id}`}
+                    className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+                  >
+                    查看完整报告
+                  </Link>
+                ) : null}
+              </div>
+
+              {latestEntry?.nextActions?.length ? (
+                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/4 p-4">
+                  <p className="text-sm font-semibold">明日建议</p>
                   <ul className="mt-3 space-y-2 text-sm leading-7 text-white/74">
-                    {compareLines.map((line) => (
-                      <li key={line}>{line}</li>
+                    {latestEntry.nextActions.slice(0, 3).map((item) => (
+                      <li key={item}>{item}</li>
                     ))}
                   </ul>
                 </div>
-              </div>
+              ) : null}
             </div>
 
             <div className="rounded-[2rem] border border-line bg-surface p-6 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:p-8">

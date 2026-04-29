@@ -1,0 +1,205 @@
+import type {
+  RetrospectiveEntry,
+  RetrospectiveInput,
+  RetrospectiveScore,
+} from "@/types/retrospective";
+
+export const DEFAULT_AI_MODEL = "gpt-5.4";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+
+export type RetrospectiveAnalysis = {
+  todayEvaluation: string;
+  comparisonSummary: string;
+  fullReport: string;
+  nextActions: string[];
+  score: RetrospectiveScore;
+  analysisStatus: "complete" | "fallback";
+  analysisProvider: "openai" | "local";
+  analysisModel?: string;
+};
+
+type AnalysisOptions = {
+  apiKey?: string | null;
+  model?: string | null;
+};
+
+function stripMarkdownFence(text: string): string {
+  return text.replace(/^```json\s*/i, "").replace(/\s*```$/i, "").trim();
+}
+
+function safeParseAnalysis(text: string): Partial<RetrospectiveAnalysis> | null {
+  try {
+    return JSON.parse(stripMarkdownFence(text)) as Partial<RetrospectiveAnalysis>;
+  } catch {
+    return null;
+  }
+}
+
+function buildLocalAnalysis(
+  current: RetrospectiveInput,
+  previous: RetrospectiveEntry | null
+): RetrospectiveAnalysis {
+  const currentPieces = [
+    current.todayWhatIDid,
+    current.highlightMoment,
+    current.whatWentWrong,
+    current.tomorrowPlan,
+  ]
+    .filter(Boolean)
+    .map((value) => value.trim());
+
+  const repeatIssue =
+    previous?.whatWentWrong && current.whatWentWrong.includes(previous.whatWentWrong);
+  const carryPlan =
+    previous?.tomorrowPlan && current.todayWhatIDid.includes(previous.tomorrowPlan);
+
+  const todayEvaluation = `今天整体推进稳定，完成了${currentPieces[0] || "主要任务"}。${
+    current.highlightMoment ? `亮点是${current.highlightMoment}。` : ""
+  }`;
+
+  const comparisonSummary = previous
+    ? `${carryPlan ? "延续了上次计划。" : "计划承接还不够明显。"}${
+        repeatIssue ? "上次问题仍有重复。" : "重复问题控制得更好。"
+      }`
+    : "这是第一条记录，后续会在第二条开始生成对比。";
+
+  const scoreValue = Math.max(
+    60,
+    Math.min(
+      95,
+      60 +
+        Math.min(current.todayWhatIDid.length, 80) * 0.25 +
+        Math.min(current.highlightMoment.length, 40) * 0.2 +
+        Math.min(current.tomorrowPlan.length, 50) * 0.2 -
+        Math.min(current.whatWentWrong.length, 60) * 0.12
+    )
+  );
+
+  return {
+    todayEvaluation,
+    comparisonSummary,
+    fullReport: [
+      "今日复盘",
+      current.todayWhatIDid,
+      "",
+      "高光时刻",
+      current.highlightMoment || "暂无",
+      "",
+      "问题与不足",
+      current.whatWentWrong || "暂无",
+      "",
+      "明日建议",
+      current.tomorrowPlan || "暂无",
+      "",
+      "对比摘要",
+      comparisonSummary,
+    ].join("\n"),
+    nextActions: current.tomorrowPlan
+      ? [current.tomorrowPlan, "把明日计划拆成 1-3 个可执行动作", "记录明天的结果，方便继续对比"]
+      : ["补充明日计划", "把计划拆成可执行动作", "记录明天结果"],
+    score: {
+      value: Math.round(scoreValue),
+      scale: "100",
+      label: "临时评分",
+      rationale: "根据今日输入完整度与与上次承接情况生成的临时分数。",
+    },
+    analysisStatus: "fallback",
+    analysisProvider: "local",
+  };
+}
+
+export async function generateRetrospectiveAnalysis(
+  current: RetrospectiveInput,
+  previous: RetrospectiveEntry | null,
+  options: AnalysisOptions = {}
+): Promise<RetrospectiveAnalysis> {
+  const apiKey = options.apiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
+  const model = options.model?.trim() || DEFAULT_AI_MODEL;
+
+  if (!apiKey) {
+    return buildLocalAnalysis(current, previous);
+  }
+
+  const prompt = {
+    role: "system",
+    content:
+      "你是一个中文每日复盘助手。请严格输出 JSON 对象，不要输出多余解释。字段必须包含 todayEvaluation, comparisonSummary, fullReport, nextActions, score。todayEvaluation 和 comparisonSummary 每个尽量控制在 100 字左右。score 是 0 到 100 的整数。nextActions 是 2 到 3 条简短中文建议。fullReport 可以更完整，但仍然要简洁有条理，适合二级页展示。",
+  };
+
+  const userPayload = {
+    current,
+    previous,
+  };
+
+  try {
+    const response = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          prompt,
+          {
+            role: "user",
+            content: JSON.stringify(userPayload),
+          },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4,
+      }),
+    });
+
+    if (!response.ok) {
+      return buildLocalAnalysis(current, previous);
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      return buildLocalAnalysis(current, previous);
+    }
+
+    const parsed = safeParseAnalysis(content);
+    if (!parsed) {
+      return buildLocalAnalysis(current, previous);
+    }
+
+    return {
+      todayEvaluation:
+        typeof parsed.todayEvaluation === "string" && parsed.todayEvaluation.trim()
+          ? parsed.todayEvaluation.trim()
+          : buildLocalAnalysis(current, previous).todayEvaluation,
+      comparisonSummary:
+        typeof parsed.comparisonSummary === "string" && parsed.comparisonSummary.trim()
+          ? parsed.comparisonSummary.trim()
+          : buildLocalAnalysis(current, previous).comparisonSummary,
+      fullReport:
+        typeof parsed.fullReport === "string" && parsed.fullReport.trim()
+          ? parsed.fullReport.trim()
+          : buildLocalAnalysis(current, previous).fullReport,
+      nextActions:
+        Array.isArray(parsed.nextActions) && parsed.nextActions.length > 0
+          ? parsed.nextActions.filter((item): item is string => typeof item === "string").slice(0, 3)
+          : buildLocalAnalysis(current, previous).nextActions,
+      score:
+        parsed.score && typeof parsed.score.value === "number"
+          ? {
+              value: Math.max(0, Math.min(100, Math.round(parsed.score.value))),
+              scale: parsed.score.scale === "5" || parsed.score.scale === "grade" ? parsed.score.scale : "100",
+              label: parsed.score.label?.trim() || "AI 评分",
+              rationale: parsed.score.rationale?.trim(),
+            }
+          : buildLocalAnalysis(current, previous).score,
+      analysisStatus: "complete",
+      analysisProvider: "openai",
+      analysisModel: model,
+    };
+  } catch {
+    return buildLocalAnalysis(current, previous);
+  }
+}

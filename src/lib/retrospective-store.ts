@@ -55,6 +55,11 @@ export async function getPreviousEntry(): Promise<RetrospectiveEntry | null> {
   return entries[entries.length - 2] ?? null;
 }
 
+export async function getEntryById(id: string): Promise<RetrospectiveEntry | null> {
+  const entries = await readEntries();
+  return entries.find((entry) => entry.id === id) ?? null;
+}
+
 export async function saveEntry(entry: RetrospectiveEntry): Promise<RetrospectiveEntry> {
   const entries = await readEntries();
   entries.push(entry);
