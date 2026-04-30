@@ -3,9 +3,12 @@ import type {
   RetrospectiveInput,
   RetrospectiveScore,
 } from "@/types/retrospective";
+import { config, getProviderConfig, type AnalysisProvider } from "@/lib/config";
+import { createChatCompletion } from "@/lib/ai-client";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
-export const DEFAULT_AI_MODEL = "gpt-5.4";
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+export const DEFAULT_AI_MODEL = config.openrouterModel;
+export const DEFAULT_AI_PROVIDER: AnalysisProvider = config.defaultAnalysisProvider;
 
 export type RetrospectiveAnalysis = {
   todayEvaluation: string;
@@ -14,13 +17,13 @@ export type RetrospectiveAnalysis = {
   nextActions: string[];
   score: RetrospectiveScore;
   analysisStatus: "complete" | "fallback";
-  analysisProvider: "openai" | "local";
+  analysisProvider: AnalysisProvider | "local";
   analysisModel?: string;
 };
 
 type AnalysisOptions = {
-  apiKey?: string | null;
   model?: string | null;
+  provider?: AnalysisProvider | null;
 };
 
 function stripMarkdownFence(text: string): string {
@@ -113,14 +116,15 @@ export async function generateRetrospectiveAnalysis(
   previous: RetrospectiveEntry | null,
   options: AnalysisOptions = {}
 ): Promise<RetrospectiveAnalysis> {
-  const apiKey = options.apiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
-  const model = options.model?.trim() || DEFAULT_AI_MODEL;
+  const provider = options.provider ?? DEFAULT_AI_PROVIDER;
+  const providerConfig = getProviderConfig(provider);
+  const model = options.model?.trim() || (provider === "openai" ? config.openaiModel : config.openrouterModel);
 
-  if (!apiKey) {
+  if (!providerConfig.apiKey) {
     return buildLocalAnalysis(current, previous);
   }
 
-  const prompt = {
+  const prompt: ChatCompletionMessageParam = {
     role: "system",
     content:
       "你是一个中文每日复盘助手。请严格输出 JSON 对象，不要输出多余解释。字段必须包含 todayEvaluation, comparisonSummary, fullReport, nextActions, score。todayEvaluation 和 comparisonSummary 每个尽量控制在 100 字左右。score 是 0 到 100 的整数。nextActions 是 2 到 3 条简短中文建议。fullReport 可以更完整，但仍然要简洁有条理，适合二级页展示。",
@@ -130,36 +134,19 @@ export async function generateRetrospectiveAnalysis(
     current,
     previous,
   };
+  const userMessage: ChatCompletionMessageParam = {
+    role: "user",
+    content: JSON.stringify(userPayload),
+  };
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          prompt,
-          {
-            role: "user",
-            content: JSON.stringify(userPayload),
-          },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.4,
-      }),
-    });
+    const response = await createChatCompletion(
+      provider,
+      [prompt, userMessage],
+      model
+    );
 
-    if (!response.ok) {
-      return buildLocalAnalysis(current, previous);
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | null } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
+    const content = response.choices?.[0]?.message?.content;
     if (!content) {
       return buildLocalAnalysis(current, previous);
     }
@@ -196,7 +183,7 @@ export async function generateRetrospectiveAnalysis(
             }
           : buildLocalAnalysis(current, previous).score,
       analysisStatus: "complete",
-      analysisProvider: "openai",
+      analysisProvider: provider,
       analysisModel: model,
     };
   } catch {

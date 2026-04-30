@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   const maybeBody = payload as RetrospectiveInput & {
-    apiKey?: string | null;
+    provider?: "openrouter" | "openai";
     model?: string | null;
   };
   const previous = await getLatestEntry();
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   };
 
   const analysis = await generateRetrospectiveAnalysis(baseEntry, previous, {
-    apiKey: maybeBody.apiKey,
+    provider: maybeBody.provider,
     model: maybeBody.model,
   });
 

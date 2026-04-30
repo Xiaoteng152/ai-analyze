@@ -25,7 +25,7 @@ export type RetrospectiveEntry = RetrospectiveInput & {
   nextActions?: string[];
   score?: RetrospectiveScore;
   analysisStatus?: "complete" | "fallback";
-  analysisProvider?: "openai" | "local";
+  analysisProvider?: "openrouter" | "openai" | "local";
   analysisModel?: string;
   analysisUpdatedAt?: string;
 };

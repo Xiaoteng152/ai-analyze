@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { DEFAULT_AI_MODEL } from "@/lib/retrospective-analysis";
+import { DEFAULT_AI_MODEL, DEFAULT_AI_PROVIDER } from "@/lib/retrospective-analysis";
 import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
 
 type ApiResponse<T> = {
@@ -29,11 +29,18 @@ const EMPTY_FORM: RetrospectiveInput = {
   tomorrowPlan: "",
 };
 
-const AI_MODEL_OPTIONS = [
-  { label: "gpt-5.4", value: "gpt-5.4" },
-  { label: "gpt-5.5", value: "gpt-5.5" },
-  { label: "gpt-5.4-mini", value: "gpt-5.4-mini" },
-];
+const PROVIDER_MODEL_OPTIONS: Record<string, Array<{ label: string; value: string }>> = {
+  openrouter: [
+    { label: "deepseek-ai/DeepSeek-R1", value: "deepseek-ai/DeepSeek-R1" },
+    { label: "deepseek-ai/DeepSeek-V3", value: "deepseek-ai/DeepSeek-V3" },
+    { label: "deepseek-ai/DeepSeek-R1-0528", value: "deepseek-ai/DeepSeek-R1-0528" },
+  ],
+  openai: [
+    { label: "gpt-5.4", value: "gpt-5.4" },
+    { label: "gpt-5.5", value: "gpt-5.5" },
+    { label: "gpt-5.4-mini", value: "gpt-5.4-mini" },
+  ],
+};
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -61,8 +68,8 @@ export function RetrospectiveHomeClient({
   const [form, setForm] = useState<RetrospectiveInput>(EMPTY_FORM);
   const [latestEntry, setLatestEntry] = useState<RetrospectiveEntry | null>(initialLatestEntry);
   const [previousEntry, setPreviousEntry] = useState<RetrospectiveEntry | null>(initialPreviousEntry);
-  const [apiKey, setApiKey] = useState<string>("");
-  const [model, setModel] = useState<string>(DEFAULT_AI_MODEL);
+  const [provider, setProvider] = useState<string>(DEFAULT_AI_PROVIDER);
+  const [model, setModel] = useState<string>(PROVIDER_MODEL_OPTIONS[DEFAULT_AI_PROVIDER][0]?.value ?? DEFAULT_AI_MODEL);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -80,6 +87,8 @@ export function RetrospectiveHomeClient({
     setPreviousEntry(payload.data.previous);
   }
 
+  const availableModels = PROVIDER_MODEL_OPTIONS[provider] ?? PROVIDER_MODEL_OPTIONS.openrouter;
+
   function updateField(field: keyof RetrospectiveInput, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
@@ -96,7 +105,7 @@ export function RetrospectiveHomeClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          apiKey: apiKey.trim() || undefined,
+          provider,
           model,
         }),
       });
@@ -274,45 +283,50 @@ export function RetrospectiveHomeClient({
                 </label>
               ))}
 
-              <div className="grid gap-4 rounded-[1.25rem] border border-line bg-white/70 p-4 sm:rounded-[1.5rem]">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">AI 连接设置</p>
-                    <p className="mt-1 text-xs leading-5 text-ink-soft">
-                      API Key 仅在提交分析时随请求发送，后端不会持久化保存。
-                    </p>
+                <div className="grid gap-4 rounded-[1.25rem] border border-line bg-white/70 p-4 sm:rounded-[1.5rem]">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">AI 连接设置</p>
+                      <p className="mt-1 text-xs leading-5 text-ink-soft">
+                        密钥保存在后端环境变量，不会随请求暴露，可在 `.env.local` 中替换。
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[#f3e1cf] px-3 py-1 text-xs font-semibold text-accent-deep">
+                      后端配置
+                    </span>
                   </div>
-                  <span className="rounded-full bg-[#f3e1cf] px-3 py-1 text-xs font-semibold text-accent-deep">
-                    可自定义
-                  </span>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-medium text-foreground">供应商</span>
+                    <select
+                      className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
+                      value={provider}
+                      onChange={(event) => {
+                        const nextProvider = event.target.value;
+                        setProvider(nextProvider);
+                        setModel(PROVIDER_MODEL_OPTIONS[nextProvider]?.[0]?.value ?? DEFAULT_AI_MODEL);
+                      }}
+                    >
+                      <option value="openrouter">OpenRouter</option>
+                      <option value="openai">OpenAI</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-2">
+                    <span className="text-sm font-medium text-foreground">模型</span>
+                    <select
+                      className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
+                      value={model}
+                      onChange={(event) => setModel(event.target.value)}
+                    >
+                      {availableModels.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-medium text-foreground">OpenAI API Key</span>
-                  <input
-                    type="password"
-                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
-                    placeholder="sk-..."
-                    value={apiKey}
-                    onChange={(event) => setApiKey(event.target.value)}
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-sm font-medium text-foreground">模型</span>
-                  <select
-                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
-                    value={model}
-                    onChange={(event) => setModel(event.target.value)}
-                  >
-                    {AI_MODEL_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <button
@@ -330,17 +344,21 @@ export function RetrospectiveHomeClient({
 
           <div className="grid gap-6">
             <div className="rounded-[1.75rem] border border-line bg-[#182226] p-5 text-white shadow-[0_16px_48px_rgba(24,34,38,0.18)] sm:rounded-[2rem] sm:p-8">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[#e6b58c]">
-                    AI 输出看板
-                  </p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-[#e6b58c]">
+                      AI 输出看板
+                    </p>
                   <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
                     今日评价与上次相比
                   </h2>
                 </div>
                 <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
-                  {latestEntry?.analysisProvider === "openai" ? "OpenAI" : "本地兜底"}
+                  {latestEntry?.analysisProvider === "openrouter"
+                    ? "OpenRouter"
+                    : latestEntry?.analysisProvider === "openai"
+                      ? "OpenAI"
+                      : "本地兜底"}
                 </span>
               </div>
 
