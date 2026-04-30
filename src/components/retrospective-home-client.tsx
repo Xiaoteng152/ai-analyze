@@ -175,30 +175,30 @@ export function RetrospectiveHomeClient({
 
   return (
     <main className="grain flex-1">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10">
-        <section className="overflow-hidden rounded-[2rem] border border-line bg-surface shadow-[0_22px_80px_rgba(79,56,34,0.12)]">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 sm:gap-8 sm:px-6 sm:py-6 lg:px-10">
+        <section className="overflow-hidden rounded-[1.75rem] border border-line bg-surface shadow-[0_22px_80px_rgba(79,56,34,0.12)] sm:rounded-[2rem]">
           <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
-            <div className="px-6 py-8 sm:px-10 sm:py-10 lg:px-12 lg:py-12">
-              <div className="mb-8 flex items-center justify-between gap-4">
-                <div>
+            <div className="px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-12">
+              <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
                     AI DAILY RETROSPECTIVE
                   </p>
-                  <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                  <h1 className="max-w-2xl text-[clamp(2rem,8vw,3.25rem)] font-semibold tracking-tight text-foreground leading-tight">
                     把今天说清楚，再把明天想明白。
                   </h1>
                 </div>
-                <div className="hidden rounded-full border border-line bg-white/80 px-4 py-2 text-sm text-ink-soft lg:block">
+                <div className="inline-flex w-fit rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs text-ink-soft sm:px-4 sm:py-2 sm:text-sm">
                   MVP · 单人复盘
                 </div>
               </div>
 
-              <p className="max-w-2xl text-base leading-8 text-ink-soft sm:text-lg">
+              <p className="max-w-2xl text-sm leading-7 text-ink-soft sm:text-base sm:leading-8">
                 支持文字与语音转文字输入，自动整理出结构化复盘表格，
                 对比上一条记录，给出今日评分、评价和明日建议。
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="mt-6 grid gap-3 sm:mt-8 sm:grid-cols-3">
                 {[
                   ["输入", "今日完成、高光、问题、明日计划"],
                   ["分析", "结构化表格 + 对比 + 评分"],
@@ -206,7 +206,7 @@ export function RetrospectiveHomeClient({
                 ].map(([title, text]) => (
                   <div
                     key={title}
-                    className="rounded-[1.5rem] border border-line bg-white/80 p-4 backdrop-blur"
+                    className="rounded-[1.25rem] border border-line bg-white/80 p-3.5 backdrop-blur sm:rounded-[1.5rem] sm:p-4"
                   >
                     <p className="text-sm font-semibold text-foreground">{title}</p>
                     <p className="mt-2 text-sm leading-6 text-ink-soft">{text}</p>
@@ -215,25 +215,25 @@ export function RetrospectiveHomeClient({
               </div>
             </div>
 
-            <div className="border-t border-line bg-[#efe2cf] px-6 py-8 sm:px-10 lg:border-t-0 lg:border-l lg:px-8">
-              <div className="rounded-[1.75rem] border border-[#cfae86] bg-[#fff8ef] p-5 shadow-[0_16px_32px_rgba(131,74,39,0.08)]">
-                <div className="flex items-center justify-between">
+            <div className="border-t border-line bg-[#efe2cf] px-5 py-6 sm:px-8 sm:py-8 lg:border-t-0 lg:border-l lg:px-8">
+              <div className="rounded-[1.5rem] border border-[#cfae86] bg-[#fff8ef] p-4 shadow-[0_16px_32px_rgba(131,74,39,0.08)] sm:rounded-[1.75rem] sm:p-5">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-accent-deep">
                       最新复盘记录
                     </p>
-                    <p className="mt-2 text-xl font-semibold text-foreground">
+                    <p className="mt-2 text-lg font-semibold text-foreground sm:text-xl">
                       {latestEntry ? formatDate(latestEntry.createdAt) : "暂无记录"}
                     </p>
                   </div>
-                  <span className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-white">
+                  <span className="rounded-full bg-accent px-3 py-1 text-[11px] font-semibold text-white sm:text-xs">
                     语音转文字待接入
                   </span>
                 </div>
 
-                <div className="mt-5 space-y-3 text-sm">
+                <div className="mt-4 space-y-3 text-sm sm:mt-5">
                   {INPUT_FIELDS.map((field) => (
-                    <div key={field.key} className="rounded-2xl bg-white p-3">
+                    <div key={field.key} className="rounded-[1rem] bg-white p-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sage">
                         {field.label}
                       </p>
@@ -249,13 +249,13 @@ export function RetrospectiveHomeClient({
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="rounded-[2rem] border border-line bg-surface p-6 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:p-8">
-            <div className="mb-6 flex items-end justify-between gap-4">
+          <div className="rounded-[1.75rem] border border-line bg-surface p-5 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:rounded-[2rem] sm:p-8">
+            <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
                   复盘录入区
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
                   手动输入已打通，提交后会保存并刷新最新记录
                 </h2>
               </div>
@@ -266,7 +266,7 @@ export function RetrospectiveHomeClient({
                 <label key={field.key} className="grid gap-2">
                   <span className="text-sm font-semibold text-foreground">{field.label}</span>
                   <textarea
-                    className="min-h-28 resize-none rounded-[1.5rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm leading-6 text-foreground outline-none transition focus:border-accent"
+                    className="min-h-24 resize-none rounded-[1.25rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base leading-7 text-foreground outline-none transition focus:border-accent sm:min-h-28 sm:rounded-[1.5rem] sm:text-sm"
                     placeholder={`在这里填写${field.label}`}
                     value={form[field.key]}
                     onChange={(event) => updateField(field.key, event.target.value)}
@@ -274,7 +274,7 @@ export function RetrospectiveHomeClient({
                 </label>
               ))}
 
-              <div className="grid gap-4 rounded-[1.5rem] border border-line bg-white/70 p-4">
+              <div className="grid gap-4 rounded-[1.25rem] border border-line bg-white/70 p-4 sm:rounded-[1.5rem]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold text-foreground">AI 连接设置</p>
@@ -291,7 +291,7 @@ export function RetrospectiveHomeClient({
                   <span className="text-sm font-medium text-foreground">OpenAI API Key</span>
                   <input
                     type="password"
-                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent"
+                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
                     placeholder="sk-..."
                     value={apiKey}
                     onChange={(event) => setApiKey(event.target.value)}
@@ -301,7 +301,7 @@ export function RetrospectiveHomeClient({
                 <label className="grid gap-2">
                   <span className="text-sm font-medium text-foreground">模型</span>
                   <select
-                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent"
+                    className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-base text-foreground outline-none transition focus:border-accent"
                     value={model}
                     onChange={(event) => setModel(event.target.value)}
                   >
@@ -318,7 +318,7 @@ export function RetrospectiveHomeClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-full border border-line bg-white px-5 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2"
                 >
                   {isSubmitting ? "提交中..." : "提交本次复盘"}
                 </button>
@@ -329,13 +329,13 @@ export function RetrospectiveHomeClient({
           </div>
 
           <div className="grid gap-6">
-            <div className="rounded-[2rem] border border-line bg-[#182226] p-6 text-white shadow-[0_16px_48px_rgba(24,34,38,0.18)] sm:p-8">
+            <div className="rounded-[1.75rem] border border-line bg-[#182226] p-5 text-white shadow-[0_16px_48px_rgba(24,34,38,0.18)] sm:rounded-[2rem] sm:p-8">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.24em] text-[#e6b58c]">
                     AI 输出看板
                   </p>
-                  <h2 className="mt-3 text-2xl font-semibold tracking-tight">
+                  <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
                     今日评价与上次相比
                   </h2>
                 </div>
@@ -344,22 +344,22 @@ export function RetrospectiveHomeClient({
                 </span>
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[1.5rem] bg-white/6 p-4">
+              <div className="mt-5 grid gap-3 sm:mt-6 sm:grid-cols-2">
+                <div className="rounded-[1.25rem] bg-white/6 p-4 sm:rounded-[1.5rem]">
                   <p className="text-sm font-semibold">今日评价</p>
-                  <p className="mt-3 text-sm leading-7 text-white/74">
+                  <p className="mt-3 text-sm leading-7 text-white/74 sm:text-[15px]">
                     {getTodayEvaluation()}
                   </p>
                 </div>
-                <div className="rounded-[1.5rem] bg-white/6 p-4">
+                <div className="rounded-[1.25rem] bg-white/6 p-4 sm:rounded-[1.5rem]">
                   <p className="text-sm font-semibold">和上次相比</p>
-                  <p className="mt-3 text-sm leading-7 text-white/74">
+                  <p className="mt-3 text-sm leading-7 text-white/74 sm:text-[15px]">
                     {getComparisonSummary()}
                   </p>
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-white/10 bg-white/4 p-4">
+              <div className="mt-4 flex flex-col gap-3 rounded-[1.25rem] border border-white/10 bg-white/4 p-4 sm:mt-5 sm:flex-row sm:items-center sm:justify-between sm:rounded-[1.5rem]">
                 <div>
                   <p className="text-sm font-semibold">今日评分</p>
                   <p className="mt-1 text-2xl font-semibold text-white">{getScoreLabel()}</p>
@@ -367,7 +367,7 @@ export function RetrospectiveHomeClient({
                 {hasFullReport && latestEntry ? (
                   <Link
                     href={`/report/${latestEntry.id}`}
-                    className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 sm:w-auto"
                   >
                     查看完整报告
                   </Link>
@@ -375,7 +375,7 @@ export function RetrospectiveHomeClient({
               </div>
 
               {latestEntry?.nextActions?.length ? (
-                <div className="mt-5 rounded-[1.5rem] border border-white/10 bg-white/4 p-4">
+                <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/4 p-4 sm:mt-5 sm:rounded-[1.5rem]">
                   <p className="text-sm font-semibold">明日建议</p>
                   <ul className="mt-3 space-y-2 text-sm leading-7 text-white/74">
                     {latestEntry.nextActions.slice(0, 3).map((item) => (
@@ -386,7 +386,7 @@ export function RetrospectiveHomeClient({
               ) : null}
             </div>
 
-            <div className="rounded-[2rem] border border-line bg-surface p-6 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:p-8">
+            <div className="rounded-[1.75rem] border border-line bg-surface p-5 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:rounded-[2rem] sm:p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
                 后续扩展坑位
               </p>
@@ -398,7 +398,7 @@ export function RetrospectiveHomeClient({
                 ].map((item) => (
                   <div
                     key={item}
-                    className="rounded-[1.25rem] border border-dashed border-line bg-[#fbf6ed] px-4 py-3 text-sm leading-6 text-ink-soft"
+                    className="rounded-[1rem] border border-dashed border-line bg-[#fbf6ed] px-4 py-3 text-sm leading-6 text-ink-soft sm:rounded-[1.25rem]"
                   >
                     {item}
                   </div>
