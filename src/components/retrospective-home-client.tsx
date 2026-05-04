@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { DEFAULT_AI_MODEL, DEFAULT_AI_PROVIDER } from "@/lib/retrospective-analysis";
-import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
+import type {
+  CollectedItem,
+  MonthlySummary,
+  RetrospectiveEntry,
+  RetrospectiveInput,
+} from "@/types/retrospective";
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -61,16 +66,27 @@ function truncate(text: string, max = 100): string {
 export function RetrospectiveHomeClient({
   initialLatestEntry,
   initialPreviousEntry,
+  initialMonth,
+  initialMonthlySummary,
+  initialMonthlyItems,
 }: {
   initialLatestEntry: RetrospectiveEntry | null;
   initialPreviousEntry: RetrospectiveEntry | null;
+  initialMonth: string;
+  initialMonthlySummary: MonthlySummary;
+  initialMonthlyItems: CollectedItem[];
 }) {
   const [form, setForm] = useState<RetrospectiveInput>(EMPTY_FORM);
   const [latestEntry, setLatestEntry] = useState<RetrospectiveEntry | null>(initialLatestEntry);
   const [previousEntry, setPreviousEntry] = useState<RetrospectiveEntry | null>(initialPreviousEntry);
+  const [month, setMonth] = useState(initialMonth);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary>(initialMonthlySummary);
+  const [monthlyItems, setMonthlyItems] = useState<CollectedItem[]>(initialMonthlyItems);
   const [provider, setProvider] = useState<string>(DEFAULT_AI_PROVIDER);
   const [model, setModel] = useState<string>(PROVIDER_MODEL_OPTIONS[DEFAULT_AI_PROVIDER][0]?.value ?? DEFAULT_AI_MODEL);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCollectingGit, setIsCollectingGit] = useState(false);
+  const [isSummarizingMonth, setIsSummarizingMonth] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -85,6 +101,83 @@ export function RetrospectiveHomeClient({
     }
     setLatestEntry(payload.data.latest);
     setPreviousEntry(payload.data.previous);
+  }
+
+  async function loadMonthlySummary(nextMonth = month) {
+    const res = await fetch(`/api/monthly-summaries?month=${encodeURIComponent(nextMonth)}`, {
+      cache: "no-store",
+    });
+    const payload = (await res.json()) as ApiResponse<{
+      month: string;
+      summary: MonthlySummary;
+      items: CollectedItem[];
+    }>;
+    if (!res.ok || !payload.ok) {
+      throw new Error(payload.error ?? "读取月度归纳失败");
+    }
+    setMonth(payload.data.month);
+    setMonthlySummary(payload.data.summary);
+    setMonthlyItems(payload.data.items);
+  }
+
+  async function collectGitData() {
+    setIsCollectingGit(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const res = await fetch("/api/sources/git/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consent: true, month }),
+      });
+      const payload = (await res.json()) as ApiResponse<{ saved: number; collected: number }>;
+      if (!res.ok || !payload.ok) {
+        setError(payload.error ?? "Git 数据读取失败");
+        return;
+      }
+
+      await loadMonthlySummary(month);
+      setMessage(
+        payload.data.saved > 0
+          ? `Git 已读取 ${payload.data.collected} 条，新增保存 ${payload.data.saved} 条。`
+          : "Git 已读取，未发现新的可保存数据。"
+      );
+    } catch {
+      setError("Git 数据读取失败，请确认当前目录是 Git 仓库。");
+    } finally {
+      setIsCollectingGit(false);
+    }
+  }
+
+  async function generateMonthlySummary() {
+    setIsSummarizingMonth(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const res = await fetch(`/api/monthly-summaries?month=${encodeURIComponent(month)}`, {
+        method: "POST",
+      });
+      const payload = (await res.json()) as ApiResponse<{
+        month: string;
+        summary: MonthlySummary;
+        items: CollectedItem[];
+      }>;
+      if (!res.ok || !payload.ok) {
+        setError(payload.error ?? "生成月度归纳失败");
+        return;
+      }
+
+      setMonth(payload.data.month);
+      setMonthlySummary(payload.data.summary);
+      setMonthlyItems(payload.data.items);
+      setMessage("月度归纳已刷新。");
+    } catch {
+      setError("生成月度归纳失败，请稍后重试。");
+    } finally {
+      setIsSummarizingMonth(false);
+    }
   }
 
   const availableModels = PROVIDER_MODEL_OPTIONS[provider] ?? PROVIDER_MODEL_OPTIONS.openrouter;
@@ -117,6 +210,7 @@ export function RetrospectiveHomeClient({
       }
 
       await loadCompareLatest();
+      await loadMonthlySummary(month);
       setForm(EMPTY_FORM);
       setMessage("提交成功，已保存本次复盘。");
     } catch {
@@ -181,6 +275,8 @@ export function RetrospectiveHomeClient({
   }
 
   const hasFullReport = Boolean(latestEntry?.fullReport);
+  const gitSourceSummary = monthlySummary.sourceSummaries.find((source) => source.sourceId === "git");
+  const manualSourceSummary = monthlySummary.sourceSummaries.find((source) => source.sourceId === "manual");
 
   return (
     <main className="grain flex-1">
@@ -252,6 +348,131 @@ export function RetrospectiveHomeClient({
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="rounded-[1.75rem] border border-line bg-surface p-5 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:rounded-[2rem] sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
+                  数据源插件
+                </p>
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
+                  内部插件化采集
+                </h2>
+              </div>
+              <span className="w-fit rounded-full border border-line bg-white px-3 py-1 text-xs text-ink-soft">
+                {month}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {[
+                {
+                  title: "Git 代码",
+                  text: "读取当前仓库提交、分支、文件变更和未提交状态。",
+                  status: gitSourceSummary ? `${gitSourceSummary.itemCount} 条` : "未读取",
+                  action: collectGitData,
+                  disabled: isCollectingGit,
+                  button: isCollectingGit ? "读取中..." : "同意并读取",
+                },
+                {
+                  title: "手动输入",
+                  text: "你提交的复盘会自动进入本月归纳池。",
+                  status: manualSourceSummary ? `${manualSourceSummary.itemCount} 条` : "等待输入",
+                  action: undefined,
+                  disabled: true,
+                  button: "已启用",
+                },
+                {
+                  title: "聊天 / 浏览",
+                  text: "保留插件位。读取前会单独做授权确认。",
+                  status: "待接入",
+                  action: undefined,
+                  disabled: true,
+                  button: "规划中",
+                },
+              ].map((source) => (
+                <div
+                  key={source.title}
+                  className="grid gap-3 rounded-[1.25rem] border border-line bg-[#fffdf8] p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:rounded-[1.5rem]"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{source.title}</p>
+                      <span className="rounded-full bg-[#f3e1cf] px-2.5 py-1 text-xs font-semibold text-accent-deep">
+                        {source.status}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-ink-soft">{source.text}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={source.disabled}
+                    onClick={source.action}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+                  >
+                    {source.button}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-line bg-surface p-5 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:rounded-[2rem] sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
+                  月份档案
+                </p>
+                <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
+                  {monthlySummary.headline}
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={isSummarizingMonth}
+                onClick={generateMonthlySummary}
+                className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {isSummarizingMonth ? "归纳中..." : "刷新归纳"}
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm leading-7 text-ink-soft">{monthlySummary.narrative}</p>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["数据量", `${monthlySummary.itemCount} 条`],
+                ["来源数", `${monthlySummary.sourceSummaries.length} 个`],
+                ["最近采集", monthlyItems.at(-1)?.collectedAt ? formatDate(monthlyItems.at(-1)?.collectedAt ?? "") : "暂无"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-[1rem] border border-line bg-[#fffdf8] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sage">{label}</p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-[1.25rem] border border-line bg-[#fffdf8] p-4 sm:rounded-[1.5rem]">
+                <p className="text-sm font-semibold text-foreground">本月主题</p>
+                <ul className="mt-3 space-y-2 text-sm leading-7 text-ink-soft">
+                  {(monthlySummary.keyThemes.length ? monthlySummary.keyThemes : ["等待更多数据形成主题。"]).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-[1.25rem] border border-line bg-[#fffdf8] p-4 sm:rounded-[1.5rem]">
+                <p className="text-sm font-semibold text-foreground">下月关注</p>
+                <ul className="mt-3 space-y-2 text-sm leading-7 text-ink-soft">
+                  {monthlySummary.nextMonthFocus.slice(0, 3).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>

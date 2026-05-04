@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { getMonthKey } from "@/lib/date-utils";
 import { generateRetrospectiveAnalysis } from "@/lib/retrospective-analysis";
 import { getLatestEntry, saveEntry } from "@/lib/retrospective-store";
+import { saveCollectedItems } from "@/lib/source-store";
 import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
 
 function isNonEmptyString(value: unknown): value is string {
@@ -76,6 +78,36 @@ export async function POST(request: Request) {
     analysisModel: analysis.analysisModel,
     analysisUpdatedAt: now,
   });
+  const manualItem = await saveCollectedItems([
+    {
+      id: crypto.randomUUID(),
+      sourceId: "manual",
+      sourceLabel: "手动输入",
+      collectedAt: now,
+      occurredAt: now,
+      month: getMonthKey(new Date(now)),
+      title: `每日复盘 ${new Date(now).toLocaleDateString("zh-CN")}`,
+      summary: [
+        `今天做了什么：${saved.todayWhatIDid}`,
+        `高光时刻：${saved.highlightMoment}`,
+        `问题不足：${saved.whatWentWrong}`,
+        `明日计划：${saved.tomorrowPlan}`,
+      ].join("\n"),
+      rawText: saved.fullReport,
+      metadata: {
+        retrospectiveId: saved.id,
+      },
+    },
+  ]);
 
-  return NextResponse.json({ ok: true, data: saved }, { status: 201 });
+  return NextResponse.json(
+    {
+      ok: true,
+      data: {
+        ...saved,
+        collectedItemIds: manualItem.map((item) => item.id),
+      },
+    },
+    { status: 201 }
+  );
 }
