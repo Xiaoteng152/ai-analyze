@@ -1,1 +1,114 @@
-[]
+[
+  {
+    "id": "af288a97-5530-494e-acd2-9ccb34d65bda",
+    "createdAt": "2026-05-01T08:37:42.466Z",
+    "updatedAt": "2026-05-01T08:37:42.466Z",
+    "inputSource": "manual",
+    "todayWhatIDid": "313",
+    "highlightMoment": "3131",
+    "whatWentWrong": "3113",
+    "tomorrowPlan": "31313",
+    "todayEvaluation": "今日完成313项任务，亮点为3131，但存在3113的问题。整体效率尚可，但需优化细节处理。",
+    "comparisonSummary": "无昨日数据对比，建议后续持续记录以便分析趋势。",
+    "fullReport": "今日总结：\n1. 完成任务量：313项\n2. 高光时刻：3131\n3. 待改进点：3113\n4. 明日计划：31313\n\n注：首次记录缺乏历史参照，建议明日关注任务分类统计。",
+    "nextActions": [
+      "拆分31313计划为可执行子步骤",
+      "针对3113问题制定解决方案",
+      "建立任务分类标签系统"
+    ],
+    "score": {
+      "value": 62,
+      "scale": "100",
+      "label": "临时评分",
+      "rationale": "根据今日输入完整度与与上次承接情况生成的临时分数。"
+    },
+    "analysisStatus": "complete",
+    "analysisProvider": "openrouter",
+    "analysisModel": "deepseek-ai/DeepSeek-R1",
+    "analysisUpdatedAt": "2026-05-01T08:37:42.466Z"
+  },
+  {
+    "id": "4a931281-0b3c-4061-8cd2-ce40026c47ef",
+    "createdAt": "2026-05-01T08:38:08.289Z",
+    "updatedAt": "2026-05-01T08:38:08.289Z",
+    "inputSource": "manual",
+    "todayWhatIDid": "1",
+    "highlightMoment": "1",
+    "whatWentWrong": "1",
+    "tomorrowPlan": "1",
+    "todayEvaluation": "今日完成1项任务，亮点为1，但存在1的问题。任务量明显不足，需提升执行力。",
+    "comparisonSummary": "相比昨日313项任务，今日仅完成1项，效率大幅下降。需分析原因并调整策略。",
+    "fullReport": "今日总结：\n1. 完成任务量：1项（昨日313项）\n2. 高光时刻：1\n3. 待改进点：1\n4. 明日计划：1\n\n对比分析：任务完成量断崖式下跌，需检查时间管理漏洞。建议重新评估任务优先级设置。",
+    "nextActions": [
+      "核查今日时间分配异常原因",
+      "将明日计划1拆解为具体可量化步骤",
+      "设立最低任务量警戒线"
+    ],
+    "score": {
+      "value": 61,
+      "scale": "100",
+      "label": "临时评分",
+      "rationale": "根据今日输入完整度与与上次承接情况生成的临时分数。"
+    },
+    "analysisStatus": "complete",
+    "analysisProvider": "openrouter",
+    "analysisModel": "deepseek-ai/DeepSeek-R1",
+    "analysisUpdatedAt": "2026-05-01T08:38:08.289Z"
+  },
+  {
+    "id": "b5a9a8c1-5ae5-444e-888a-197346e19ca7",
+    "createdAt": "2026-05-01T08:38:33.135Z",
+    "updatedAt": "2026-05-01T08:38:33.135Z",
+    "inputSource": "manual",
+    "todayWhatIDid": "1",
+    "highlightMoment": "1",
+    "whatWentWrong": "1",
+    "tomorrowPlan": "1",
+    "todayEvaluation": "今日完成1项任务，亮点为1，但存在1的问题。整体效率较低，需提升任务量与优化问题处理。",
+    "comparisonSummary": "相比昨日313项任务，今日仅完成1项，任务量大幅下降。需分析原因并调整执行策略。",
+    "fullReport": "今日总结：\n1. 完成任务量：1项\n2. 高光时刻：1\n3. 待改进点：1\n4. 明日计划：1\n\n对比分析：任务完成量较昨日（313项）显著减少，需关注执行效率下降原因。建议检查时间分配与任务优先级设置。",
+    "nextActions": [
+      "分析任务量锐减的根本原因",
+      "将明日计划1拆解为具体可执行步骤",
+      "设立每日最低任务量目标"
+    ],
+    "score": {
+      "value": 61,
+      "scale": "100",
+      "label": "临时评分",
+      "rationale": "根据今日输入完整度与与上次承接情况生成的临时分数。"
+    },
+    "analysisStatus": "complete",
+    "analysisProvider": "openrouter",
+    "analysisModel": "deepseek-ai/DeepSeek-R1",
+    "analysisUpdatedAt": "2026-05-01T08:38:33.135Z"
+  },
+  {
+    "id": "ebe1eea1-e33c-4580-b74b-d4e8ab7cc6e2",
+    "createdAt": "2026-05-01T08:42:53.589Z",
+    "updatedAt": "2026-05-01T08:42:53.589Z",
+    "inputSource": "manual",
+    "todayWhatIDid": "4",
+    "highlightMoment": "4",
+    "whatWentWrong": "4",
+    "tomorrowPlan": "4",
+    "todayEvaluation": "今日完成4项任务，亮点为4，但存在4的问题。整体效率良好，需优化问题处理流程。",
+    "comparisonSummary": "相比昨日1项任务，今日完成4项，任务量显著提升。继续保持并优化执行策略。",
+    "fullReport": "今日总结：\n1. 完成任务量：4项\n2. 高光时刻：4\n3. 待改进点：4\n4. 明日计划：4\n\n对比分析：任务完成量较昨日（1项）大幅增加，执行效率明显提升。建议关注问题处理优化与计划可行性。",
+    "nextActions": [
+      "优化问题处理流程以提高效率",
+      "将明日计划4拆解为具体步骤",
+      "设立质量检查环节确保任务完成度"
+    ],
+    "score": {
+      "value": 61,
+      "scale": "100",
+      "label": "临时评分",
+      "rationale": "根据今日输入完整度与与上次承接情况生成的临时分数。"
+    },
+    "analysisStatus": "complete",
+    "analysisProvider": "openrouter",
+    "analysisModel": "deepseek-ai/DeepSeek-R1",
+    "analysisUpdatedAt": "2026-05-01T08:42:53.589Z"
+  }
+]
