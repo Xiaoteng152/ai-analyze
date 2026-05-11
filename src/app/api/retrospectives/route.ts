@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getMonthKey } from "@/lib/date-utils";
 import { generateRetrospectiveAnalysis } from "@/lib/retrospective-analysis";
-import { getLatestEntry, saveEntry } from "@/lib/retrospective-store";
+import { buildMultiDayTrend, formatTrendForPrompt } from "@/lib/retrospective-trend";
+import { getEntriesWithinLastDays, getLatestEntry, saveEntry } from "@/lib/retrospective-store";
+import { getUserContext } from "@/lib/user-context-store";
 import { saveCollectedItems } from "@/lib/source-store";
 import type { RetrospectiveEntry, RetrospectiveInput } from "@/types/retrospective";
 
@@ -47,7 +49,17 @@ export async function POST(request: Request) {
     provider?: "openrouter" | "openai";
     model?: string | null;
   };
-  const previous = await getLatestEntry();
+  const [previous, userContext] = await Promise.all([getLatestEntry(), getUserContext()]);
+  const trendEntries = await getEntriesWithinLastDays(userContext.trendLookbackDays);
+  const multiDayTrendText = formatTrendForPrompt(
+    buildMultiDayTrend(trendEntries, userContext.trendLookbackDays)
+  );
+
+  const personalization = {
+    profileBackground: userContext.profileBackground.trim() || undefined,
+    workStyleTags: userContext.workStyleTags.length ? userContext.workStyleTags : undefined,
+    multiDayTrendText: multiDayTrendText.trim() || undefined,
+  };
 
   const now = new Date().toISOString();
   const baseEntry: RetrospectiveEntry = {
@@ -64,10 +76,13 @@ export async function POST(request: Request) {
   const analysis = await generateRetrospectiveAnalysis(baseEntry, previous, {
     provider: maybeBody.provider,
     model: maybeBody.model,
+    personalization,
   });
 
   const saved = await saveEntry({
     ...baseEntry,
+    profileContext: personalization.profileBackground,
+    personalityNotes: personalization.workStyleTags?.join("、"),
     todayEvaluation: analysis.todayEvaluation,
     comparisonSummary: analysis.comparisonSummary,
     fullReport: analysis.fullReport,

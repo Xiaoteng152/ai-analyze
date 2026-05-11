@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import type { MultiDayTrendResult } from "@/lib/retrospective-trend";
 import { DEFAULT_AI_MODEL, DEFAULT_AI_PROVIDER } from "@/lib/retrospective-analysis";
 import type {
   CollectedItem,
@@ -10,6 +11,12 @@ import type {
   RetrospectiveEntry,
   RetrospectiveInput,
 } from "@/types/retrospective";
+import {
+  MAX_PROFILE_LENGTH,
+  MAX_WORK_STYLE_TAGS,
+  WORK_STYLE_PRESET_LABELS,
+  type UserContextState,
+} from "@/types/user-context";
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -33,6 +40,8 @@ const EMPTY_FORM: RetrospectiveInput = {
   whatWentWrong: "",
   tomorrowPlan: "",
 };
+
+const TREND_DAY_PRESETS = [3, 7, 14, 30, 60, 90] as const;
 
 const PROVIDER_MODEL_OPTIONS: Record<string, Array<{ label: string; value: string }>> = {
   openrouter: [
@@ -69,12 +78,14 @@ export function RetrospectiveHomeClient({
   initialMonth,
   initialMonthlySummary,
   initialMonthlyItems,
+  initialUserContext,
 }: {
   initialLatestEntry: RetrospectiveEntry | null;
   initialPreviousEntry: RetrospectiveEntry | null;
   initialMonth: string;
   initialMonthlySummary: MonthlySummary;
   initialMonthlyItems: CollectedItem[];
+  initialUserContext: UserContextState;
 }) {
   const [form, setForm] = useState<RetrospectiveInput>(EMPTY_FORM);
   const [latestEntry, setLatestEntry] = useState<RetrospectiveEntry | null>(initialLatestEntry);
@@ -89,6 +100,110 @@ export function RetrospectiveHomeClient({
   const [isSummarizingMonth, setIsSummarizingMonth] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
+
+  const [profileBackground, setProfileBackground] = useState(initialUserContext.profileBackground);
+  const [workStyleTags, setWorkStyleTags] = useState<string[]>(initialUserContext.workStyleTags);
+  const [trendLookbackDays, setTrendLookbackDays] = useState(initialUserContext.trendLookbackDays);
+  const [customTagInput, setCustomTagInput] = useState("");
+  const [contextMessage, setContextMessage] = useState("");
+  const [contextError, setContextError] = useState("");
+  const [isSavingContext, setIsSavingContext] = useState(false);
+  const [trendResult, setTrendResult] = useState<MultiDayTrendResult | null>(null);
+  const [isTrendLoading, setIsTrendLoading] = useState(false);
+  const [trendRefreshKey, setTrendRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      setIsTrendLoading(true);
+      try {
+        const res = await fetch(`/api/retrospectives/trend?days=${trendLookbackDays}`, {
+          cache: "no-store",
+        });
+        const payload = (await res.json()) as ApiResponse<MultiDayTrendResult>;
+        if (cancelled || !res.ok || !payload.ok) {
+          return;
+        }
+        setTrendResult(payload.data);
+      } catch {
+        if (!cancelled) {
+          setTrendResult(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsTrendLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trendLookbackDays, trendRefreshKey]);
+
+  async function persistUserContext(next?: Partial<UserContextState>) {
+    setIsSavingContext(true);
+    setContextMessage("");
+    setContextError("");
+
+    const body = {
+      profileBackground: next?.profileBackground ?? profileBackground,
+      workStyleTags: next?.workStyleTags ?? workStyleTags,
+      trendLookbackDays: next?.trendLookbackDays ?? trendLookbackDays,
+    };
+
+    try {
+      const res = await fetch("/api/user-context", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await res.json()) as ApiResponse<UserContextState>;
+      if (!res.ok || !payload.ok) {
+        setContextError(payload.error ?? "保存失败");
+        return;
+      }
+      setProfileBackground(payload.data.profileBackground);
+      setWorkStyleTags(payload.data.workStyleTags);
+      setTrendLookbackDays(payload.data.trendLookbackDays);
+      setContextMessage("个人上下文已保存，后续提交复盘时会自动带入。");
+      setTrendRefreshKey((key) => key + 1);
+    } catch {
+      setContextError("保存失败，请稍后重试。");
+    } finally {
+      setIsSavingContext(false);
+    }
+  }
+
+  function togglePresetTag(label: string) {
+    setWorkStyleTags((prev) => {
+      if (prev.includes(label)) {
+        return prev.filter((item) => item !== label);
+      }
+      if (prev.length >= MAX_WORK_STYLE_TAGS) {
+        return prev;
+      }
+      return [...prev, label];
+    });
+  }
+
+  function addCustomTag() {
+    const trimmed = customTagInput.trim().slice(0, 32);
+    if (!trimmed) {
+      return;
+    }
+    setWorkStyleTags((prev) => {
+      if (prev.includes(trimmed)) {
+        return prev;
+      }
+      if (prev.length >= MAX_WORK_STYLE_TAGS) {
+        return prev;
+      }
+      return [...prev, trimmed];
+    });
+    setCustomTagInput("");
+  }
 
   async function loadCompareLatest() {
     const res = await fetch("/api/retrospectives/compare-latest", { cache: "no-store" });
@@ -211,6 +326,7 @@ export function RetrospectiveHomeClient({
 
       await loadCompareLatest();
       await loadMonthlySummary(month);
+      setTrendRefreshKey((key) => key + 1);
       setForm(EMPTY_FORM);
       setMessage("提交成功，已保存本次复盘。");
     } catch {
@@ -626,22 +742,188 @@ export function RetrospectiveHomeClient({
             </div>
 
             <div className="rounded-[1.75rem] border border-line bg-surface p-5 shadow-[0_12px_48px_rgba(79,56,34,0.08)] sm:rounded-[2rem] sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
-                后续扩展坑位
-              </p>
-              <div className="mt-4 grid gap-3">
-                {[
-                  "补充个人履历/背景信息，增强建议的上下文感知",
-                  "引入性格画像或工作风格标签，形成更个性化的反馈",
-                  "从“上一条对比”扩展到“多日趋势观察”",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-[1rem] border border-dashed border-line bg-[#fbf6ed] px-4 py-3 text-sm leading-6 text-ink-soft sm:rounded-[1.25rem]"
-                  >
-                    {item}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-deep">
+                    个人上下文与多日趋势
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                    履历、风格与趋势一并接入分析
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-ink-soft">
+                    内容保存在本机 <span className="font-medium text-foreground">data/user-context.json</span>
+                    ，提交复盘时写入 AI 提示词，并快照到该条记录的扩展字段。
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6">
+                <label className="grid gap-2">
+                  <span className="text-sm font-semibold text-foreground">个人履历与当前背景</span>
+                  <textarea
+                    className="min-h-32 resize-y rounded-[1.25rem] border border-line bg-[#fffdf8] px-4 py-3.5 text-sm leading-7 text-foreground outline-none transition focus:border-accent sm:min-h-36 sm:rounded-[1.5rem]"
+                    placeholder="例如：职业阶段、当前项目、近期目标、约束条件等，便于建议更贴场景。"
+                    value={profileBackground}
+                    maxLength={MAX_PROFILE_LENGTH}
+                    onChange={(event) => setProfileBackground(event.target.value)}
+                  />
+                  <span className="text-xs text-ink-soft">
+                    {profileBackground.length}/{MAX_PROFILE_LENGTH} 字
+                  </span>
+                </label>
+
+                <div className="grid gap-3">
+                  <span className="text-sm font-semibold text-foreground">性格画像 / 工作风格标签</span>
+                  <p className="text-xs leading-5 text-ink-soft">
+                    可多选预设，也可添加自定义（最多 {MAX_WORK_STYLE_TAGS} 个）。
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {WORK_STYLE_PRESET_LABELS.map((label) => {
+                      const active = workStyleTags.includes(label);
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => togglePresetTag(label)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition sm:text-sm ${
+                            active
+                              ? "border-accent bg-accent text-white"
+                              : "border-line bg-white text-foreground hover:border-accent"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      value={customTagInput}
+                      maxLength={32}
+                      onChange={(event) => setCustomTagInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addCustomTag();
+                        }
+                      }}
+                      placeholder="自定义标签，回车添加"
+                      className="flex-1 rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-2.5 text-sm text-foreground outline-none transition focus:border-accent"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCustomTag}
+                      className="rounded-full border border-line bg-white px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent sm:shrink-0"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  {workStyleTags.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {workStyleTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#f3e1cf] px-3 py-1 text-xs font-medium text-accent-deep"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            className="text-[#7a4a2a] hover:text-[#4d2f1a]"
+                            aria-label={`移除 ${tag}`}
+                            onClick={() => setWorkStyleTags((prev) => prev.filter((item) => item !== tag))}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-ink-soft">尚未选择标签。</p>
+                  )}
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end sm:gap-4">
+                  <label className="grid gap-2">
+                    <span className="text-sm font-semibold text-foreground">多日趋势观察窗口</span>
+                    <select
+                      className="rounded-[1rem] border border-line bg-[#fffdf8] px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent"
+                      value={trendLookbackDays}
+                      onChange={(event) => setTrendLookbackDays(Number.parseInt(event.target.value, 10))}
+                    >
+                      {!TREND_DAY_PRESETS.includes(trendLookbackDays as (typeof TREND_DAY_PRESETS)[number]) ? (
+                        <option value={trendLookbackDays}>最近 {trendLookbackDays} 天（当前值）</option>
+                      ) : null}
+                      {TREND_DAY_PRESETS.map((days) => (
+                        <option key={days} value={days}>
+                          最近 {days} 天
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-ink-soft">
+                      按记录创建时间筛选；变更窗口会刷新下方趋势摘要（未保存也可先预览）。
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={isSavingContext}
+                    onClick={() => void persistUserContext()}
+                    className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:py-2.5"
+                  >
+                    {isSavingContext ? "保存中..." : "保存个人上下文"}
+                  </button>
+                </div>
+
+                {(contextMessage || contextError) && (
+                  <div className="text-sm">
+                    {contextMessage ? <p className="text-sage">{contextMessage}</p> : null}
+                    {contextError ? <p className="text-[#b2442f]">{contextError}</p> : null}
+                  </div>
+                )}
+
+                <div className="rounded-[1.25rem] border border-line bg-[#fffdf8] p-4 sm:rounded-[1.5rem] sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">多日趋势观察</p>
+                    {isTrendLoading ? (
+                      <span className="text-xs text-ink-soft">加载中…</span>
+                    ) : trendResult ? (
+                      <span className="text-xs text-ink-soft">
+                        {trendResult.entryCount} 条 · 窗口 {trendResult.lookbackDays} 天
+                      </span>
+                    ) : null}
+                  </div>
+                  {trendResult ? (
+                    <ul className="mt-3 space-y-2 text-sm leading-7 text-ink-soft">
+                      {trendResult.bullets.map((line, index) => (
+                        <li key={`${index}-${line.slice(0, 24)}`}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-ink-soft">暂无趋势数据。</p>
+                  )}
+                  {trendResult && trendResult.snapshots.length > 0 ? (
+                    <div className="mt-4 overflow-x-auto rounded-[1rem] border border-line bg-white/80">
+                      <table className="min-w-full text-left text-xs text-foreground sm:text-sm">
+                        <thead className="border-b border-line bg-[#fbf6ed] text-ink-soft">
+                          <tr>
+                            <th className="px-3 py-2 font-medium">日期</th>
+                            <th className="px-3 py-2 font-medium">评分</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {trendResult.snapshots.map((row) => (
+                            <tr key={row.id} className="border-b border-line last:border-0">
+                              <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.createdAt)}</td>
+                              <td className="px-3 py-2">
+                                {typeof row.scoreValue === "number" ? row.scoreValue : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>

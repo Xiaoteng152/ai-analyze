@@ -39,6 +39,15 @@ export async function getAllEntries(): Promise<RetrospectiveEntry[]> {
   return readEntries();
 }
 
+export async function getEntriesWithinLastDays(days: number): Promise<RetrospectiveEntry[]> {
+  const safeDays = Math.min(90, Math.max(1, Math.round(days)));
+  const entries = await readEntries();
+  const cutoff = Date.now() - safeDays * 24 * 60 * 60 * 1000;
+  return entries
+    .filter((entry) => new Date(entry.createdAt).getTime() >= cutoff)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
 export async function getLatestEntry(): Promise<RetrospectiveEntry | null> {
   const entries = await readEntries();
   if (entries.length === 0) {
